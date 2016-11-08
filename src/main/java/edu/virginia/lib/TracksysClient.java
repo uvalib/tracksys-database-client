@@ -19,6 +19,7 @@ public class TracksysClient {
     private String connectionUrl;
 
     public TracksysClient(final String host, final String username, final String password) throws SQLException {
+        DriverManager.registerDriver(new com.mysql.jdbc.Driver());
         connectionUrl = "jdbc:mysql://" + host + "/tracksys_production?user=" + username + "&password=" + password;
         conn = DriverManager.getConnection(connectionUrl);
     }
