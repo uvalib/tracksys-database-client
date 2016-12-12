@@ -40,13 +40,13 @@ public class TracksysClient {
 
     private Summary getDescriptionOfPidWithoutReconnect(final String pid) throws SQLException {
         // first try master files
-        final String masterFileSql = "select master_files.title, metadata.title, master_files.pid, metadata.pid, master_files.indexing_scenario_id, master_files.component_id from master_files LEFT JOIN (units, metadata) ON (master_files.unit_id=units.id and units.metadata_id=metadata.id) where master_files.pid=?;";
+        final String masterFileSql = "select master_files.title, metadata.title, master_files.pid, metadata.pid, master_files.metadata_id, master_files.component_id from master_files LEFT JOIN (units, metadata) ON (master_files.unit_id=units.id and units.metadata_id=metadata.id) where master_files.pid=?;";
         PreparedStatement p = conn.prepareStatement(masterFileSql);
         p.setString(1, pid);
         ResultSet rs = p.executeQuery();
         try {
             if (rs.first()) {
-                if (rs.getInt(5) == 2) {
+                if (rs.getString(5) != "NULL") {
                     // image from a collection
                     return new Summary("\"" + rs.getString(1) + "\" from the collection \"" + rs.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs.getString(3));
                 } else {
