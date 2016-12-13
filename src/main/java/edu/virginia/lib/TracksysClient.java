@@ -40,31 +40,28 @@ public class TracksysClient {
 
     private Summary getDescriptionOfPidWithoutReconnect(final String pid) throws SQLException {
         // first try master files
-        final String masterFileSql = "select master_files.title, metadata.title, master_files.pid, metadata.pid, master_files.metadata_id, master_files.component_id from master_files LEFT JOIN (units, metadata) ON (master_files.unit_id=units.id and units.metadata_id=metadata.id) where master_files.pid=?;";
+        final String masterFileSql = "select master_files.title, metadata.title, master_files.pid, metadata.pid, metadata.indexing_scenario_id, master_files.component_id from master_files LEFT JOIN (units, metadata) ON (master_files.unit_id=units.id and units.metadata_id=metadata.id) where master_files.pid=?;";
         PreparedStatement p = conn.prepareStatement(masterFileSql);
         p.setString(1, pid);
         ResultSet rs = p.executeQuery();
         try {
             if (rs.first()) {
-                if (rs.getString(5) != "NULL") {
-                    // image from a collection
-                    return new Summary("\"" + rs.getString(1) + "\" from the collection \"" + rs.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs.getString(3));
-                } else {
-                    if (rs.getInt(6) != 0) {
-                        // page of a component
-                        PreparedStatement p2 = conn.prepareStatement("select master_files.title, components.title, components.pid from master_files LEFT JOIN (components) ON (master_files.component_id=components.id) where master_files.pid=?;");
-                        p2.setString(1, pid);
-                        ResultSet rs2 = p2.executeQuery();
-                        try {
-                            rs2.first();
+                if (rs.getInt(6) != 0) {
+                    PreparedStatement p2 = conn.prepareStatement("select master_files.title, components.title, components.pid, components.date_dl_ingest from master_files LEFT JOIN (components) ON (master_files.component_id=components.id) where master_files.pid=?;");
+                    p2.setString(1, pid);
+                    ResultSet rs2 = p2.executeQuery();
+                    try {
+                        rs2.first();
+                        if (rs2.getString(4) == null) {
+                            return new Summary("\"" + rs.getString(1) + "\" from \"" + rs.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs.getString(3));
+                        } else {
                             return new Summary("Page \"" + rs2.getString(1) + "\" from \"" + rs2.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs2.getString(3) + "/view#openLayer/" + pid + "/0/0/0/1/0");
-                        } finally {
-                            rs2.close();
                         }
-                    } else {
-                        // page from a book
-                        return new Summary("Page \"" + rs.getString(1) + "\" from \"" + rs.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs.getString(4) + "#openLayer/" + rs.getString(3) + "/0/0/0/1/0");
+                    } finally {
+                        rs2.close();
                     }
+                } else {
+                    return new Summary("\"" + rs.getString(1) + "\" from \"" + rs.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs.getString(3));
                 }
             }
         } finally {
