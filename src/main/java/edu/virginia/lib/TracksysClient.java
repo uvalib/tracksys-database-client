@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -38,44 +39,35 @@ public class TracksysClient {
         throw lastException;
     }
 
+    private static final Collection<String> PUBLISHED_COMPONENTS_METADATA = Arrays.asList(new String[]{ "uva-lib:2065830", "uva-lib:2147933", "uva-lib:2221376", "uva-lib:2448611", "uva-lib:2246086" });
+
     private Summary getDescriptionOfPidWithoutReconnect(final String pid) throws SQLException {
         // first try master files
-        final String masterFileSql = "select master_files.title, metadata.title, master_files.pid, metadata.pid, metadata.indexing_scenario_id, master_files.component_id from master_files LEFT JOIN (units, metadata) ON (master_files.unit_id=units.id and units.metadata_id=metadata.id) where master_files.pid=?;";
+        final String masterFileSql = "select metadata.pid, metadata.indexing_scenario_id, master_files.component_id, metadata.id, units.metadata_id, metadata.title, um.title, um.pid, master_files.title from master_files LEFT JOIN (metadata) ON (master_files.metadata_id=metadata.id) LEFT JOIN (units) ON (master_files.unit_id=units.id) LEFT JOIN (metadata as um) ON (units.metadata_id=um.id) where master_files.pid=?;";
         PreparedStatement p = conn.prepareStatement(masterFileSql);
         p.setString(1, pid);
         ResultSet rs = p.executeQuery();
         try {
             if (rs.first()) {
-                if (rs.getInt(6) != 0) {
-                    PreparedStatement p2 = conn.prepareStatement("select master_files.title, components.title, components.pid, components.date_dl_ingest from master_files LEFT JOIN (components) ON (master_files.component_id=components.id) where master_files.pid=?;");
-                    p2.setString(1, pid);
-                    ResultSet rs2 = p2.executeQuery();
-                    try {
-                        rs2.first();
-                        if (rs2.getString(4) == null) {
-                            return new Summary("\"" + rs.getString(1) + "\" from \"" + rs.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs.getString(3));
-                        } else {
-                            return new Summary("Page \"" + rs2.getString(1) + "\" from \"" + rs2.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs2.getString(3) + "/view#openLayer/" + pid + "/0/0/0/1/0");
-                        }
-                    } finally {
-                        rs2.close();
+                final String metadataPid = rs.getString(1);
+                System.out.println(metadataPid);
+                if (PUBLISHED_COMPONENTS_METADATA.contains(metadataPid)) {
+                    // special handling for these few published hierarchicalcollections
+                    PreparedStatement p2 = conn.prepareStatement("select pid, title from components where id=?");
+                    p2.setInt(1, rs.getInt(3));
+                    ResultSet componentInfo = p2.executeQuery();
+                    if (componentInfo.next()) {
+                        return new Summary("Page " + rs.getString(9) + " in " + componentInfo.getString(2), "http://search.lib.virginia.edu/catalog/" + componentInfo.getString(1) + "/view#openLayer/" + pid + "/0/0/0/1/0");
                     }
                 } else {
-                    return new Summary("\"" + rs.getString(1) + "\" from \"" + rs.getString(2) + "\"", "http://search.lib.virginia.edu/catalog/" + rs.getString(3));
+                    final int indexingScenario = rs.getInt(2);
+                    final String url = "http://search.lib.virginia.edu/catalog/" + metadataPid + ((indexingScenario == 2) ? "" : "/view#openLayer/" + pid + "/0/0/0/1/0");
+                    if (rs.getString(1).equals(rs.getString(8))) {
+                        return new Summary("Page " + rs.getString(9) + " in " + rs.getString(6), url);
+                    } else {
+                        return new Summary(rs.getString(6) + " from " + rs.getString(7), url);
+                    }
                 }
-            }
-        } finally {
-            rs.close();
-        }
-
-        // not a master file, try a metadata item
-        final String metadataSql = "select metadata.title, metadata.pid from metadata where metadata.pid=?;";
-        p = conn.prepareStatement(metadataSql);
-        p.setString(1, pid);
-        rs = p.executeQuery();
-        try {
-            if (rs.first()) {
-                return new Summary(rs.getString(1), "http://search.lib.virginia.edu/catalog/" + rs.getString(2));
             }
         } finally {
             rs.close();
