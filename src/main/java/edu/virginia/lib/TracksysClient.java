@@ -50,7 +50,6 @@ public class TracksysClient {
         try {
             if (rs.first()) {
                 final String metadataPid = rs.getString(1);
-                System.out.println(metadataPid);
                 if (PUBLISHED_COMPONENTS_METADATA.contains(metadataPid)) {
                     // special handling for these few published hierarchicalcollections
                     PreparedStatement p2 = conn.prepareStatement("select pid, title from components where id=?");
