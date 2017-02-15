@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Created by md5wz on 4/7/15.
@@ -168,6 +170,36 @@ public class TracksysClient {
         }
     }
 
+    public int getDigitizedImageCountForCatalogKey(final String catalogKey) throws SQLException {
+        SQLException lastException = null;
+        for (int attempts = 1; attempts <= 3; attempts ++) {
+            try {
+                return getDigitizedImageCountForCatalogKeyWithoutReconnect(catalogKey);
+            } catch (SQLException ex) {
+                lastException = ex;
+                conn.close();
+                conn = DriverManager.getConnection(connectionUrl);
+            }
+        }
+        throw lastException;
+    }
+
+    public int getDigitizedImageCountForCatalogKeyWithoutReconnect(final String catalogKey) throws SQLException {
+        final String sql = "select count(*) from master_files left join (metadata) ON (master_files.metadata_id=metadata.id) where metadata.catalog_key=?";
+        final PreparedStatement s = conn.prepareStatement(sql);
+        s.setString(1, catalogKey);
+        final ResultSet rs= s.executeQuery();
+        try {
+            if (rs.next()) {
+                return rs.getInt(1);
+            } else {
+                throw new RuntimeException("Query returned 0 rows! (" + sql + " (" + catalogKey + ")");
+            }
+        } finally {
+            rs.close();
+        }
+    }
+
     public Connection getDBConnection() {
     	return this.conn;
     }
@@ -195,6 +227,16 @@ public class TracksysClient {
 
         public String toString() {
             return title + " (" + url + ")";
+        }
+    }
+
+    public void forEachPublishedCatalogKeyAndPid(Consumer<String> catKey, Consumer<String> pid) throws SQLException {
+        String sql = "select catalog_key, pid from metadata where date_dl_ingest is not null and catalog_key is not null";
+        PreparedStatement s = conn.prepareStatement(sql);
+        ResultSet rs = s.executeQuery();
+        while (rs.next()) {
+            catKey.accept(rs.getString(1));
+            pid.accept(rs.getString(2));
         }
     }
 
