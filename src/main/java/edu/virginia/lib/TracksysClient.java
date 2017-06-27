@@ -45,7 +45,7 @@ public class TracksysClient {
 
     private Summary getDescriptionOfPidWithoutReconnect(final String pid) throws SQLException {
         // first try master files
-        final String masterFileSql = "select metadata.pid, metadata.indexing_scenario_id, master_files.component_id, metadata.id, units.metadata_id, metadata.title, um.title, um.pid, master_files.title from master_files LEFT JOIN (metadata) ON (master_files.metadata_id=metadata.id) LEFT JOIN (units) ON (master_files.unit_id=units.id) LEFT JOIN (metadata as um) ON (units.metadata_id=um.id) where master_files.pid=?;";
+        final String masterFileSql = "select metadata.pid, metadata.type, master_files.component_id, metadata.id, units.metadata_id, metadata.title, um.title, um.pid, master_files.title from master_files LEFT JOIN (metadata) ON (master_files.metadata_id=metadata.id) LEFT JOIN (units) ON (master_files.unit_id=units.id) LEFT JOIN (metadata as um) ON (units.metadata_id=um.id) where master_files.pid=?;";
         PreparedStatement p = conn.prepareStatement(masterFileSql);
         p.setString(1, pid);
         ResultSet rs = p.executeQuery();
@@ -61,8 +61,8 @@ public class TracksysClient {
                         return new Summary("Page " + rs.getString(9) + " in " + componentInfo.getString(2), "http://search.lib.virginia.edu/catalog/" + componentInfo.getString(1) + "/view#openLayer/" + pid + "/0/0/0/1/0");
                     }
                 } else {
-                    final int indexingScenario = rs.getInt(2);
-                    final String url = "http://search.lib.virginia.edu/catalog/" + metadataPid + ((indexingScenario == 2) ? "" : "/view#openLayer/" + pid + "/0/0/0/1/0");
+                    final String metadataType = rs.getString(2);
+                    final String url = "http://search.lib.virginia.edu/catalog/" + metadataPid + ((metadataType.equals("SirsiMetadata")) ? "" : "/view#openLayer/" + pid + "/0/0/0/1/0");
                     if (rs.getString(1).equals(rs.getString(8))) {
                         return new Summary("Page " + rs.getString(9) + " in " + rs.getString(6), url);
                     } else {
